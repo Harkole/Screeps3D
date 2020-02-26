@@ -1,4 +1,5 @@
 ﻿using Assets.Scripts.Screeps_API.ConsoleClientAbuse;
+using Assets.Scripts.Screeps3D;
 using Common;
 using Screeps_API;
 using Screeps3D.Player;
@@ -8,6 +9,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using TMPro;
 using UnityEngine;
@@ -66,6 +68,26 @@ namespace Screeps3D.Rooms
             }
 
             _roomList.Hide();
+        }
+
+        private void Instance_OnGoToRoom(object sender, string roomName)
+        {
+            StartCoroutine(TwitchGotoRoom(roomName));
+        }
+
+        private IEnumerator TwitchGotoRoom(string roomName)
+        {
+            Debug.Log($"Twitch told me to go to {roomName}");
+            this.GetAndChooseRoom(roomName);
+
+            if (_pvpSpectateToggle.isOn)
+            {
+                // TODO: what if people constantly swap rooms?
+                Debug.Log($"Pausing pvp spectate for 30s");
+                _pvpSpectateToggle.isOn = false;
+                yield return new WaitForSeconds(30f);
+                _pvpSpectateToggle.isOn = true;
+            }
         }
 
         private void OnTogglePvpSpectate(bool isOn)
@@ -191,7 +213,26 @@ namespace Screeps3D.Rooms
                 {
                     var room = rooms.ElementAt(random.Next(rooms.Count));
                     var roomName = room.GetField("_id").str;
+                    var lastPvpTime = (int)room.GetField("lastPvpTime").n;
                     _roomInput.text = roomName;
+
+                    var message = new StringBuilder();
+                    message.AppendLine($"PVP in {rooms.Count} rooms, most recent 3 rooms");
+                    // loop rooms and add a list of rooms, mark the selected one bold
+                    // https://twitchtv.desk.com/customer/en/portal/articles/2884064-twitch-app-s-chat-message-formatting
+                    // the pvp list probably belongs in a twitch extension https://www.twitch.tv/p/extensions/
+                    // Still a little spammy with every 30 seconds, should probably collect pvp details in a warpath fashion and put the message on a "warpath" timer
+                    foreach (var pvpRoom in rooms.Take(3))
+                    {
+                        var pvpRoomName = pvpRoom.GetField("_id").str;
+
+                        message.AppendLine($"{pvpRoomName}");
+                    }
+
+                    message.AppendLine($"Going to {roomName} lastPvpTime: {lastPvpTime}");
+
+                    TwitchClient.Instance.SendMessage(message.ToString());
+
                     this.GetAndChooseRoom(roomName);
                 }
                 else
@@ -471,6 +512,9 @@ namespace Screeps3D.Rooms
             {
                 this.OnTogglePvpSpectate(_pvpSpectateToggle.isOn);
             }
+
+            // We register it here, cause we are lazy, and hopefully the twitch client is initialized.
+            TwitchClient.Instance.OnGoToRoom += Instance_OnGoToRoom;
         }
 
         private void AddRoomToRoomListGameObject(string shardName, string romName)
