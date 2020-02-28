@@ -15,6 +15,7 @@ namespace Assets.Scripts.Screeps3D
         private const string PP_TWITCH_CHANNEL = "twitch:channel";
         private const string PP_TWITCH_TOKEN = "twitch:bot:token";
         private const string PP_TWITCH_USERNAME = "twitch:bot:username";
+        private const string PP_TWITCH_INFO = "twitch:stream:info";
 
         public Client client;
         private string channel_name = "thmsndk"; // TODO: configurable
@@ -56,7 +57,7 @@ namespace Assets.Scripts.Screeps3D
 
         }
 
-        public void SendMessage(string message)
+        public void SendTwitchMessage(string message)
         {
             client.SendMessage(client.JoinedChannels[0], message);
         }
@@ -131,6 +132,27 @@ namespace Assets.Scripts.Screeps3D
                     // goes to the next "interesting" battle, e.g. classifications from warpath.
 
                     break;
+                case "info":
+                    // goes to the next "interesting" battle, e.g. classifications from warpath.
+                    var info = PlayerPrefs.GetString(PP_TWITCH_INFO, string.Empty);
+                    if (!string.IsNullOrEmpty(info))
+                    {
+                        SendTwitchMessage(info);
+                    }
+
+                    break;
+                case "setinfo":
+                    var allowed = new[] // TODO: detect mods & people allowed
+                    {
+                        "thmsndk",
+                        "ags131"
+                    };
+
+                    if (allowed.Contains(e.Command.ChatMessage.Username))
+                    {
+                        PlayerPrefs.SetString(PP_TWITCH_INFO, e.Command.ArgumentsAsString);
+                    }
+                    break;
                 default:
                     break;
                     // send a random message at a timer mentioning the channel and the warpath channels
@@ -139,7 +161,7 @@ namespace Assets.Scripts.Screeps3D
 
         private void Client_OnMessageReceived(object sender, TwitchLib.Client.Events.OnMessageReceivedArgs e)
         {
-            Debug.Log($"{e.ChatMessage.Username}: {e.ChatMessage.Message}");
+            //Debug.Log($"{e.ChatMessage.Username}: {e.ChatMessage.Message}");
         }
 
         private void Update()
