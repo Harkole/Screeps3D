@@ -38,8 +38,8 @@ namespace Screeps3D.RoomObjects.Views
             switch (beam.Key)
             {
                 case "rangedMassAttack":
-                    Debug.Log(beam.Key);
-                    Debug.Log(data.ToString());
+                    //Debug.Log(beam.Key);
+                    //Debug.Log(data.ToString());
                     EffectsUtility.ElectricExplosion(_creep as RoomObject);
                     break;
                 default:

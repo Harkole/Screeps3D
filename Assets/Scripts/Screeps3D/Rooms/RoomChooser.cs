@@ -70,22 +70,22 @@ namespace Screeps3D.Rooms
             _roomList.Hide();
         }
 
-        private void Instance_OnGoToRoom(object sender, string roomName)
+        private void Instance_OnGoToRoom(object sender, GoToRoomEventArgs e)
         {
-            StartCoroutine(TwitchGotoRoom(roomName));
+            StartCoroutine(TwitchGotoRoom(e));
         }
 
-        private IEnumerator TwitchGotoRoom(string roomName)
+        private IEnumerator TwitchGotoRoom(GoToRoomEventArgs e)
         {
-            Debug.Log($"Twitch told me to go to {roomName}");
-            this.GetAndChooseRoom(roomName);
+            Debug.Log($"Twitch told me to go to {e.RoomName}");
+            this.GetAndChooseRoom(e.RoomName);
 
             if (_pvpSpectateToggle.isOn)
             {
                 // TODO: what if people constantly swap rooms?
-                Debug.Log($"Pausing pvp spectate for 30s");
+                Debug.Log($"Pausing pvp spectate for {e.Seconds}s");
                 _pvpSpectateToggle.isOn = false;
-                yield return new WaitForSeconds(30f);
+                yield return new WaitForSeconds(e.Seconds);
                 _pvpSpectateToggle.isOn = true;
             }
         }
@@ -231,7 +231,7 @@ namespace Screeps3D.Rooms
 
                     message.AppendLine($"Going to {roomName} lastPvpTime: {lastPvpTime}");
 
-                    TwitchClient.Instance.SendTwitchMessage(message.ToString());
+                    //TwitchClient.Instance.SendTwitchMessage(message.ToString());
 
                     this.GetAndChooseRoom(roomName);
                 }

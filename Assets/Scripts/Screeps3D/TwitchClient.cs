@@ -10,6 +10,18 @@ using UnityEngine;
 
 namespace Assets.Scripts.Screeps3D
 {
+    public class GoToRoomEventArgs
+    {
+        public GoToRoomEventArgs(string roomName, int seconds)
+        {
+            RoomName = roomName;
+            Seconds = seconds;
+        }
+
+        public string RoomName { get; set; }
+        public float Seconds { get; set; }
+    }
+
     public class TwitchClient : BaseSingleton<TwitchClient>
     {
         private const string PP_TWITCH_CHANNEL = "twitch:channel";
@@ -20,12 +32,12 @@ namespace Assets.Scripts.Screeps3D
         public Client client;
         private string channel_name = "thmsndk"; // TODO: configurable
 
-        public event EventHandler<string> OnGoToRoom;
+        public event EventHandler<GoToRoomEventArgs> OnGoToRoom;
 
         private void Start()
         {
-            // Script should be running always
-            Application.runInBackground = true;
+            // Script should be running always, this is handled in editor settings though, setting it like this is not reccomended.
+            // Application.runInBackground = true;
 
             // TODO: UI for tokens / settings and such
             var channel = PlayerPrefs.GetString(PP_TWITCH_CHANNEL, string.Empty);
@@ -57,6 +69,24 @@ namespace Assets.Scripts.Screeps3D
 
         }
 
+        private void OnDestroy()
+        {
+            Debug.Log("TwitchClient destroyed?");
+            client.OnConnected -= Client_OnConnected;
+            client.OnJoinedChannel -= Client_OnJoinedChannel;
+            client.OnLeftChannel -= Client_OnLeftChannel;
+            client.OnDisconnected -= Client_OnDisconnected;
+            client.OnConnectionError -= Client_OnConnectionError;
+            client.OnUserTimedout -= Client_OnUserTimedout;
+
+
+            client.OnChatCommandReceived -= Client_OnChatCommandReceived;
+
+            client.OnMessageReceived -= Client_OnMessageReceived;
+            client.Disconnect();
+
+        }
+
         public void SendTwitchMessage(string message)
         {
             client.SendMessage(client.JoinedChannels[0], message);
@@ -64,16 +94,71 @@ namespace Assets.Scripts.Screeps3D
 
         private void InitializeAndConnect(string channel, string accessToken, string username)
         {
-            this.channel_name = channel;
-            var credentials = new ConnectionCredentials(username, accessToken);
-            client = new Client();
-            client.Initialize(credentials, channel_name);
+            Debug.Log($"{channel}:{accessToken}:{username}");
+            try
+            {
+                this.channel_name = channel;
+                var credentials = new ConnectionCredentials(username, accessToken);
+                client = new Client();
+                client.Initialize(credentials, channel_name);
 
-            client.OnChatCommandReceived += Client_OnChatCommandReceived;
+                client.OnConnected += Client_OnConnected;
+                client.OnJoinedChannel += Client_OnJoinedChannel;
+                client.OnLeftChannel += Client_OnLeftChannel;
+                client.OnDisconnected += Client_OnDisconnected;
+                client.OnConnectionError += Client_OnConnectionError;
+                client.OnUserTimedout += Client_OnUserTimedout;
 
-            client.OnMessageReceived += Client_OnMessageReceived;
 
-            client.Connect();
+                client.OnChatCommandReceived += Client_OnChatCommandReceived;
+
+                client.OnMessageReceived += Client_OnMessageReceived;
+
+                client.DisableAutoPong = false;
+                client.Connect();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError(ex);
+                throw;
+            }
+        }
+
+        private void Client_OnUserTimedout(object sender, TwitchLib.Client.Events.OnUserTimedoutArgs e)
+        {
+            Debug.Log($"The bot {e.UserTimeout.Username} timeout {e.UserTimeout.TimeoutReason}");
+        }
+
+        private void Client_OnConnectionError(object sender, TwitchLib.Client.Events.OnConnectionErrorArgs e)
+        {
+            Debug.Log($"The bot {e.BotUsername} connection err {e.Error.Message}");
+            Debug.LogError(e.Error.Exception);
+        }
+
+        private void Client_OnDisconnected(object sender, TwitchLib.Client.Events.OnDisconnectedArgs e)
+        {
+            Debug.Log($"The bot {e.BotUsername} just disconncted the channel!?!??!?!");
+        }
+
+        private void Client_OnLeftChannel(object sender, TwitchLib.Client.Events.OnLeftChannelArgs e)
+        {
+            Debug.Log($"The bot {e.BotUsername} just left the channel: {e.Channel}");
+        }
+
+        private void Client_OnJoinedChannel(object sender, TwitchLib.Client.Events.OnJoinedChannelArgs e)
+        {
+            Debug.Log($"The bot {e.BotUsername} just joined the channel: {e.Channel}");
+            client.SendMessage(e.Channel, "I just joined the channel! PogChamp");
+        }
+
+        private void Client_OnConnected(object sender, TwitchLib.Client.Events.OnConnectedArgs e)
+        {
+            Debug.Log($"The bot {e.BotUsername} succesfully connected to Twitch.");
+
+            if (!string.IsNullOrWhiteSpace(e.AutoJoinChannel))
+            {
+                Debug.Log($"The bot will now attempt to automatically join the channel provided when the Initialize method was called: {e.AutoJoinChannel}");
+            }
         }
 
         /*
@@ -95,6 +180,7 @@ namespace Assets.Scripts.Screeps3D
                 case "help":
                     client.SendMessage(client.JoinedChannels[0], "TODO: add a fancy help/command system :P !goto ");
                     break;
+                case "room":
                 case "goto":
                     // Raise goto event, and let RoomChooser listen for it.
                     // TODO: validate we are actually connected to the server :smirk:
@@ -103,8 +189,16 @@ namespace Assets.Scripts.Screeps3D
                     {
                         var userName = e.Command.ChatMessage.Username;
                         var roomName = arguments[0];
-                        NotifyText.Message($"{userName} told me to go to {roomName}", UnityEngine.Random.ColorHSV(0f, 1f, 1f, 1f, 0.5f, 1f));
-                        OnGoToRoom?.Invoke(this, roomName);
+                        int seconds = 30;
+                        var message = $"{userName} told me to go to {roomName}";
+                        if (arguments.Count >= 2)
+                        {
+                            int.TryParse(arguments[1], out seconds);
+                            message += $" for {seconds}";
+                        }
+
+                        NotifyText.Message(message, UnityEngine.Random.ColorHSV(0f, 1f, 1f, 1f, 0.5f, 1f));
+                        OnGoToRoom?.Invoke(this, new GoToRoomEventArgs(roomName, seconds));
                     }
                     break;
                 case "server":
@@ -161,7 +255,10 @@ namespace Assets.Scripts.Screeps3D
 
         private void Client_OnMessageReceived(object sender, TwitchLib.Client.Events.OnMessageReceivedArgs e)
         {
-            //Debug.Log($"{e.ChatMessage.Username}: {e.ChatMessage.Message}");
+            if (e.ChatMessage.Username != "Screeps3D")
+            {
+                Debug.Log($"{e.ChatMessage.Username}: {e.ChatMessage.Message}");
+            }
         }
 
         private void Update()
