@@ -1,4 +1,4 @@
-﻿using Common;
+using Common;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -99,8 +99,11 @@ namespace Assets.Scripts.Screeps3D
             {
                 this.channel_name = channel;
                 var credentials = new ConnectionCredentials(username, accessToken);
-                client = new Client();
-                client.Initialize(credentials, channel_name);
+                if (client == null)
+                {
+                    client = new Client();
+                    client.Initialize(credentials, channel_name);
+                }
 
                 client.OnConnected += Client_OnConnected;
                 client.OnJoinedChannel += Client_OnJoinedChannel;
@@ -132,12 +135,11 @@ namespace Assets.Scripts.Screeps3D
         private void Client_OnConnectionError(object sender, TwitchLib.Client.Events.OnConnectionErrorArgs e)
         {
             Debug.Log($"The bot {e.BotUsername} connection err {e.Error.Message}");
-            Debug.LogError(e.Error.Exception);
         }
 
-        private void Client_OnDisconnected(object sender, TwitchLib.Client.Events.OnDisconnectedArgs e)
+        private void Client_OnDisconnected(object sender, TwitchLib.Communication.Events.OnDisconnectedEventArgs e)
         {
-            Debug.Log($"The bot {e.BotUsername} just disconncted the channel!?!??!?!");
+            Debug.Log($"The bot just disconncted the channel!?!??!?!");
         }
 
         private void Client_OnLeftChannel(object sender, TwitchLib.Client.Events.OnLeftChannelArgs e)
