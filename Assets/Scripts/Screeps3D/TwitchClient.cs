@@ -177,6 +177,7 @@ namespace Assets.Scripts.Screeps3D
             // TODO: !help with a list of commands
             // !info that spits out a link to the event page.
             // allow moderators to !setinfo and persist link, could be link to info page :thinking: // can probably jsut hardcode a list of users for start.
+            // TODO: camera actions !topdown !zoom !rotate !follow
             switch (e.Command.CommandText)
             {
                 case "help":
